@@ -31,11 +31,17 @@ const XVFB_PORT: &'static str = ":99";
     name = "run_erc",
     about = "Run Kicad's Electric Rule Checker by spawning the Kicad gui"
 )]
-struct Options {
+struct ErcOptions {
     #[structopt(parse(from_os_str))]
     path_to_sch: path::PathBuf,
     #[structopt(long)]
     headless: bool,
+}
+
+#[derive(StructOpt)]
+enum Options {
+    RunErc(ErcOptions),
+    RunDrc,
 }
 
 fn tap_key<Key: KeyCodeConvertible + Copy>(key: Key) {
@@ -171,8 +177,7 @@ fn check_schematic_file_looks_valid(p: &path::PathBuf) -> Result<(), String> {
     }
 }
 
-fn main() -> Result<(), String> {
-    let args = Options::from_args();
+fn run_erc(args: ErcOptions) -> Result<(), String> {
     check_schematic_file_looks_valid(&args.path_to_sch)?;
     let xvfb_process = if args.headless {
         Some(Xvfb::run()?)
@@ -182,15 +187,25 @@ fn main() -> Result<(), String> {
     let mut eeschema_process = Eeschema::run(args.path_to_sch)?;
     let erc_output = get_erc_output_from_gui().map_err(|e| {
         xvfb_process.map(|mut xvfb_process| {
-            println!(
-                "Captured stderr from xvfb:\n{}",
-                xvfb_process.dump_stderr()
-            );
+            println!("Captured stderr from xvfb:\n{}", xvfb_process.dump_stderr());
         });
-        println!("Captured stderr from eeschema:\n{}",eeschema_process.dump_stderr());
-        println!("Captured stdout from eeschema:\n{}",eeschema_process.dump_stdout());
+        println!(
+            "Captured stderr from eeschema:\n{}",
+            eeschema_process.dump_stderr()
+        );
+        println!(
+            "Captured stdout from eeschema:\n{}",
+            eeschema_process.dump_stdout()
+        );
         e
     })?;
     println!("{}", erc_output);
     Ok(())
+}
+
+fn main() -> Result<(), String> {
+    match Options::from_args() {
+        Options::RunErc(args) => run_erc(args),
+        Options::RunDrc => unimplemented!(),
+    }
 }
