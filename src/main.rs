@@ -1,3 +1,5 @@
+mod eeschema;
+
 use autopilot;
 use autopilot::key::{self, Character, Code, Flag, KeyCode, KeyCodeConvertible};
 use structopt::StructOpt;
@@ -28,17 +30,24 @@ const XVFB_PORT: &'static str = ":99";
 
 #[derive(StructOpt)]
 #[structopt(
-    name = "run_erc",
+    name = "run-erc",
     about = "Run Kicad's Electric Rule Checker by spawning the Kicad gui"
 )]
 struct ErcOptions {
     #[structopt(parse(from_os_str))]
     path_to_sch: path::PathBuf,
-    #[structopt(long)]
+    #[structopt(
+        long,
+        about = "Run headless by spawning a xvfb process. Xvfb must already by installed on the system."
+    )]
     headless: bool,
 }
 
 #[derive(StructOpt)]
+#[structopt(
+    name = "kicad_gui_automation",
+    about = "Perform useful tasks with kicad from the command line"
+)]
 enum Options {
     RunErc(ErcOptions),
     RunDrc,
@@ -128,63 +137,13 @@ impl Drop for Xvfb {
     }
 }
 
-struct Eeschema {
-    process: process::Child,
-}
-
-impl Eeschema {
-    fn run(path_to_sch: path::PathBuf) -> Result<Self, String> {
-        let process = Command::new("eeschema")
-            .arg(path_to_sch)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to run eeschema: {}", e))?;
-        Ok(Self { process })
-    }
-    fn dump_stdout(&mut self) -> String {
-        let mut buffer = String::new();
-        let mut out = self.process.stdout.take().unwrap();
-        out.read_to_string(&mut buffer).unwrap();
-        buffer
-    }
-    fn dump_stderr(&mut self) -> String {
-        let mut buffer = String::new();
-        let mut out = self.process.stderr.take().unwrap();
-        out.read_to_string(&mut buffer).unwrap();
-        buffer
-    }
-}
-impl Drop for Eeschema {
-    fn drop(&mut self) {
-        self.process.kill().expect("Failed to kill eeschema");
-    }
-}
-
-fn check_schematic_file_looks_valid(p: &path::PathBuf) -> Result<(), String> {
-    if !p.exists() {
-        Err(format!(
-            "Expected path to a schematic file. No such file: {:?}",
-            p
-        ))
-    } else if p.extension() != Some(std::ffi::OsStr::new("sch")) {
-        Err(format!(
-            "Expected path to a schematic file. Extension should be `.sch`. It isn't: {:?}",
-            p
-        ))
-    } else {
-        Ok(())
-    }
-}
-
 fn run_erc(args: ErcOptions) -> Result<(), String> {
-    check_schematic_file_looks_valid(&args.path_to_sch)?;
     let xvfb_process = if args.headless {
         Some(Xvfb::run()?)
     } else {
         None
     };
-    let mut eeschema_process = Eeschema::run(args.path_to_sch)?;
+    let mut eeschema_process = eeschema::Eeschema::run(&args.path_to_sch)?;
     let erc_output = get_erc_output_from_gui().map_err(|e| {
         xvfb_process.map(|mut xvfb_process| {
             println!("Captured stderr from xvfb:\n{}", xvfb_process.dump_stderr());
