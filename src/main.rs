@@ -94,32 +94,25 @@ fn get_erc_output_from_gui() -> Result<String, String> {
     Ok(contents)
 }
 
-fn run_eeschema(path_to_sch: path::PathBuf) -> Result<process::Child, String> {
-    Command::new("eeschema")
-        .arg(path_to_sch)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to run eeschema: {}", e))
-}
-
-fn run_xvfb() -> Result<process::Child, String> {
-    Command::new("Xvfb")
-        .args(&[XVFB_PORT, "-ac", "-nolisten", "tcp"])
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to run xvfb: {}", e))
-}
-
 struct Xvfb {
     process: process::Child,
 }
 
 impl Xvfb {
     fn run() -> Result<Self, String> {
-        let process = run_xvfb()?;
+        let process = Command::new("Xvfb")
+            .args(&[XVFB_PORT, "-ac", "-nolisten", "tcp"])
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to run xvfb: {}", e))?;
         std::env::set_var("DISPLAY", XVFB_PORT);
         Ok(Self { process })
+    }
+    fn dump_stderr(&mut self) -> String {
+        let mut buffer = String::new();
+        let mut out = self.process.stderr.take().unwrap();
+        out.read_to_string(&mut buffer).unwrap();
+        buffer
     }
 }
 impl Drop for Xvfb {
@@ -135,8 +128,25 @@ struct Eeschema {
 
 impl Eeschema {
     fn run(path_to_sch: path::PathBuf) -> Result<Self, String> {
-        let process = run_eeschema(path_to_sch)?;
+        let process = Command::new("eeschema")
+            .arg(path_to_sch)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to run eeschema: {}", e))?;
         Ok(Self { process })
+    }
+    fn dump_stdout(&mut self) -> String {
+        let mut buffer = String::new();
+        let mut out = self.process.stdout.take().unwrap();
+        out.read_to_string(&mut buffer).unwrap();
+        buffer
+    }
+    fn dump_stderr(&mut self) -> String {
+        let mut buffer = String::new();
+        let mut out = self.process.stderr.take().unwrap();
+        out.read_to_string(&mut buffer).unwrap();
+        buffer
     }
 }
 impl Drop for Eeschema {
@@ -164,14 +174,23 @@ fn check_schematic_file_looks_valid(p: &path::PathBuf) -> Result<(), String> {
 fn main() -> Result<(), String> {
     let args = Options::from_args();
     check_schematic_file_looks_valid(&args.path_to_sch)?;
-    let _xvfb_process = if args.headless {
+    let xvfb_process = if args.headless {
         Some(Xvfb::run()?)
     } else {
         None
     };
-    let _eeschema_process = Eeschema::run(args.path_to_sch)?;
-    let erc_output = get_erc_output_from_gui()?;
-    // TODO: use the captured stdout and stderr in case of problems to give more context
+    let mut eeschema_process = Eeschema::run(args.path_to_sch)?;
+    let erc_output = get_erc_output_from_gui().map_err(|e| {
+        xvfb_process.map(|mut xvfb_process| {
+            println!(
+                "Captured stderr from xvfb:\n{}",
+                xvfb_process.dump_stderr()
+            );
+        });
+        println!("Captured stderr from eeschema:\n{}",eeschema_process.dump_stderr());
+        println!("Captured stdout from eeschema:\n{}",eeschema_process.dump_stdout());
+        e
+    })?;
     println!("{}", erc_output);
     Ok(())
 }
