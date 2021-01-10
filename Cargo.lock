@@ -317,6 +317,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kicad_gui_automation"
+version = "0.1.0"
+dependencies = [
+ "autopilot",
+ "rand 0.8.1",
+ "structopt",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -611,15 +620,6 @@ dependencies = [
  "crossbeam-utils",
  "lazy_static",
  "num_cpus",
-]
-
-[[package]]
-name = "run_erc"
-version = "0.1.0"
-dependencies = [
- "autopilot",
- "rand 0.8.1",
- "structopt",
 ]
 
 [[package]]
