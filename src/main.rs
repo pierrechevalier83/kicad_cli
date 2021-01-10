@@ -3,7 +3,8 @@ use autopilot::key::{self, Character, Code, Flag, KeyCode, KeyCodeConvertible};
 use structopt::StructOpt;
 
 use std::io::prelude::*;
-use std::process::{Command, Stdio};
+use std::path;
+use std::process::{self, Command, Stdio};
 
 const HOME: Code = Code(KeyCode::Home);
 const TAB: Code = Code(KeyCode::Tab);
@@ -32,7 +33,7 @@ const XVFB_PORT: &'static str = ":99";
 )]
 struct Options {
     #[structopt(parse(from_os_str))]
-    path_to_sch: std::path::PathBuf,
+    path_to_sch: path::PathBuf,
     #[structopt(long)]
     headless: bool,
 }
@@ -72,7 +73,7 @@ fn get_erc_output_from_gui() -> Result<String, String> {
     tap_combo(CTRL, A);
     type_string(ERC_OUTPUT_FILE);
 
-    let mut output = std::path::Path::new(ERC_OUTPUT_FILE);
+    let mut output = path::Path::new(ERC_OUTPUT_FILE);
     if output.exists() {
         std::fs::remove_file(output)
             .map_err(|e| format!("Failed to remove previous erc output: {}", e))?;
@@ -81,7 +82,7 @@ fn get_erc_output_from_gui() -> Result<String, String> {
     tap_key(RETURN);
     let mut loop_count = 0;
     while !output.exists() && loop_count < 10 {
-        output = std::path::Path::new(ERC_OUTPUT_FILE);
+        output = path::Path::new(ERC_OUTPUT_FILE);
         std::thread::sleep(WAITING_FOR_FILE_DELAY);
         loop_count += 1;
     }
@@ -93,7 +94,7 @@ fn get_erc_output_from_gui() -> Result<String, String> {
     Ok(contents)
 }
 
-fn run_eeschema(path_to_sch: std::path::PathBuf) -> Result<std::process::Child, String> {
+fn run_eeschema(path_to_sch: path::PathBuf) -> Result<process::Child, String> {
     Command::new("eeschema")
         .arg(path_to_sch)
         .stdout(Stdio::piped())
@@ -102,7 +103,7 @@ fn run_eeschema(path_to_sch: std::path::PathBuf) -> Result<std::process::Child, 
         .map_err(|e| format!("Failed to run eeschema: {}", e))
 }
 
-fn run_xvfb() -> Result<std::process::Child, String> {
+fn run_xvfb() -> Result<process::Child, String> {
     Command::new("Xvfb")
         .args(&[XVFB_PORT, "-ac", "-nolisten", "tcp"])
         .stderr(Stdio::piped())
@@ -111,7 +112,7 @@ fn run_xvfb() -> Result<std::process::Child, String> {
 }
 
 struct Xvfb {
-    process: std::process::Child,
+    process: process::Child,
 }
 
 impl Xvfb {
@@ -129,11 +130,11 @@ impl Drop for Xvfb {
 }
 
 struct Eeschema {
-    process: std::process::Child,
+    process: process::Child,
 }
 
 impl Eeschema {
-    fn run(path_to_sch: std::path::PathBuf) -> Result<Self, String> {
+    fn run(path_to_sch: path::PathBuf) -> Result<Self, String> {
         let process = run_eeschema(path_to_sch)?;
         Ok(Self { process })
     }
@@ -144,8 +145,25 @@ impl Drop for Eeschema {
     }
 }
 
+fn check_schematic_file_looks_valid(p: &path::PathBuf) -> Result<(), String> {
+    if !p.exists() {
+        Err(format!(
+            "Expected path to a schematic file. No such file: {:?}",
+            p
+        ))
+    } else if p.extension() != Some(std::ffi::OsStr::new("sch")) {
+        Err(format!(
+            "Expected path to a schematic file. Extension should be `.sch`. It isn't: {:?}",
+            p
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 fn main() -> Result<(), String> {
     let args = Options::from_args();
+    check_schematic_file_looks_valid(&args.path_to_sch)?;
     let _xvfb_process = if args.headless {
         Some(Xvfb::run()?)
     } else {
