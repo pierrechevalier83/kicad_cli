@@ -85,7 +85,8 @@ fn get_erc_output_from_gui() -> Result<String, String> {
         std::thread::sleep(WAITING_FOR_FILE_DELAY);
         loop_count += 1;
     }
-    let mut file = std::fs::File::open(output).map_err(|e| format!("Failed to open {}: {}", ERC_OUTPUT_FILE, e))?;
+    let mut file = std::fs::File::open(output)
+        .map_err(|e| format!("Failed to open {}: {}", ERC_OUTPUT_FILE, e))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .map_err(|e| format!("Failed to read erc output at {}: {}", ERC_OUTPUT_FILE, e))?;
@@ -127,6 +128,22 @@ impl Drop for Xvfb {
     }
 }
 
+struct Eeschema {
+    process: std::process::Child,
+}
+
+impl Eeschema {
+    fn run(path_to_sch: std::path::PathBuf) -> Result<Self, String> {
+        let process = run_eeschema(path_to_sch)?;
+        Ok(Self { process })
+    }
+}
+impl Drop for Eeschema {
+    fn drop(&mut self) {
+        self.process.kill().expect("Failed to kill eeschema");
+    }
+}
+
 fn main() -> Result<(), String> {
     let args = Options::from_args();
     let _xvfb_process = if args.headless {
@@ -134,10 +151,9 @@ fn main() -> Result<(), String> {
     } else {
         None
     };
-    let mut eeschema_process = run_eeschema(args.path_to_sch)?;
+    let _eeschema_process = Eeschema::run(args.path_to_sch)?;
     let erc_output = get_erc_output_from_gui()?;
     // TODO: use the captured stdout and stderr in case of problems to give more context
-    let _ = eeschema_process.kill();
     println!("{}", erc_output);
     Ok(())
 }
