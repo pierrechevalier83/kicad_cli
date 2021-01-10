@@ -1,0 +1,110 @@
+use autopilot;
+use autopilot::key::{self, Character, Code, Flag, KeyCode, KeyCodeConvertible};
+use structopt::StructOpt;
+
+use std::io::prelude::*;
+use std::process::Command;
+
+const HOME: Code = Code(KeyCode::Home);
+const TAB: Code = Code(KeyCode::Tab);
+const SPACE: Code = Code(KeyCode::Space);
+const RETURN: Code = Code(KeyCode::Return);
+const A: Character = Character('a');
+const C: Character = Character('c');
+const I: Character = Character('i');
+const Q: Character = Character('q');
+const CTRL: Flag = Flag::Control;
+const ALT: Flag = Flag::Alt;
+const KEY_TAP_DELAY_IN_MS: u64 = 1;
+const MOD_TAP_DELAY_IN_MS: u64 = 10;
+const WPM: f64 = 240.0;
+const NOISE: f64 = 0.0;
+const NUM_ITEMS_TO_ERC_FILE_REPORT_BOX: usize = 4;
+const NUM_ITEMS_TO_CLOSE_BUTTON: usize = 10;
+const EESCHEMA_LAUNCH_DELAY: std::time::Duration = std::time::Duration::from_millis(1000);
+const POPUP_WINDOW_LAUNCH_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
+const WAITING_FOR_FILE_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
+const ERC_OUTPUT_FILE: &'static str = "/tmp/erc_output";
+
+#[derive(StructOpt)]
+#[structopt(name = "run_erc", about = "Run Kicad's Electric Rule Checker by spawning the Kicad gui")]
+struct Options {
+    #[structopt(parse(from_os_str))]
+    path_to_sch: std::path::PathBuf
+}
+
+fn tap_key<Key: KeyCodeConvertible + Copy>(key: Key) {
+    key::tap(&key, &[], KEY_TAP_DELAY_IN_MS, 0);
+}
+
+fn tap_combo<Key: KeyCodeConvertible + Copy>(flag: Flag, key: Key) {
+    key::tap(&key, &[flag], KEY_TAP_DELAY_IN_MS, MOD_TAP_DELAY_IN_MS);
+}
+
+fn type_string(s: &str) {
+    key::type_string(s, &[], WPM, NOISE);
+}
+
+fn get_erc_output_from_gui() -> String {
+    // Wait for eeschema to start
+    std::thread::sleep(EESCHEMA_LAUNCH_DELAY);
+    // Alt + i opens the "Inspect" menu
+    tap_combo(ALT, I);
+    // c selects the "Electrical Rule Checker" item
+    tap_key(C);
+    // Wait for the Electrical Rule Checker window to appear
+    std::thread::sleep(POPUP_WINDOW_LAUNCH_DELAY);
+    // Tab over the UI elements, until "Create ERC File report"
+    for _ in 0..NUM_ITEMS_TO_ERC_FILE_REPORT_BOX {
+        tap_key(TAB);
+    }
+    // Tick "Create ERC File report"
+    tap_key(SPACE);
+    // Hit "Run"
+    tap_key(RETURN);
+    // Wait for the save dialog
+    std::thread::sleep(POPUP_WINDOW_LAUNCH_DELAY);
+    tap_key(HOME);
+    tap_combo(CTRL, A);
+    type_string(ERC_OUTPUT_FILE);
+
+    let mut output = std::path::Path::new(ERC_OUTPUT_FILE);
+    if output.exists() {
+        std::fs::remove_file(output).expect("Failed to remove previous erc output");
+    }
+    // Let's save to the path we entered and run ERC
+    tap_key(RETURN);
+    let mut loop_count = 0;
+    while !output.exists() && loop_count < 10 {
+        output = std::path::Path::new(ERC_OUTPUT_FILE);
+        std::thread::sleep(WAITING_FOR_FILE_DELAY);
+        loop_count += 1;
+    }
+    let mut file = std::fs::File::open(output).expect("Failed to open output file");
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .expect(&format!("Failed to read erc output at {:?}", output));
+    // Quit eeschema
+    for _ in 0..NUM_ITEMS_TO_CLOSE_BUTTON{
+        tap_key(TAB);
+    }
+    tap_key(RETURN);
+    std::thread::sleep(POPUP_WINDOW_LAUNCH_DELAY);
+    tap_combo(CTRL, Q);
+    contents
+}
+
+fn run_eeschema(path_to_sch: std::path::PathBuf) {
+    let run_erc = Command::new("eeschema")
+        .arg(path_to_sch)
+        .output()
+        .expect("Failed to run eeschema");
+    println!("out: {:?}", run_erc);
+}
+
+fn main() {
+    let path_to_sch = Options::from_args().path_to_sch;
+    std::thread::spawn(move || run_eeschema(path_to_sch));
+    let erc_output = get_erc_output_from_gui();
+    println!("{}", erc_output);
+}
