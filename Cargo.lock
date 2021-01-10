@@ -317,7 +317,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kicad_gui_automation"
+name = "kicad_cli"
 version = "0.1.0"
 dependencies = [
  "autopilot",

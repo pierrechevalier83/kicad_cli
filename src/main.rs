@@ -24,7 +24,7 @@ struct ErcOptions {
 
 #[derive(StructOpt)]
 #[structopt(
-    name = "kicad_gui_automation",
+    name = "kicad_cli",
     about = "Perform useful tasks with kicad from the command line"
 )]
 enum Options {
