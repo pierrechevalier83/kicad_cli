@@ -49,7 +49,7 @@ fn type_string(s: &str) {
     key::type_string(s, &[], WPM, NOISE);
 }
 
-fn get_erc_output_from_gui() -> String {
+fn get_erc_output_from_gui() -> Result<String, String> {
     // Wait for eeschema to start
     std::thread::sleep(EESCHEMA_LAUNCH_DELAY);
     // Alt + i opens the "Inspect" menu
@@ -74,7 +74,8 @@ fn get_erc_output_from_gui() -> String {
 
     let mut output = std::path::Path::new(ERC_OUTPUT_FILE);
     if output.exists() {
-        std::fs::remove_file(output).expect("Failed to remove previous erc output");
+        std::fs::remove_file(output)
+            .map_err(|e| format!("Failed to remove previous erc output: {}", e))?;
     }
     // Let's save to the path we entered and run ERC
     tap_key(RETURN);
@@ -84,20 +85,20 @@ fn get_erc_output_from_gui() -> String {
         std::thread::sleep(WAITING_FOR_FILE_DELAY);
         loop_count += 1;
     }
-    let mut file = std::fs::File::open(output).expect("Failed to open output file");
+    let mut file = std::fs::File::open(output).map_err(|e| format!("Failed to open {}: {}", ERC_OUTPUT_FILE, e))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
-        .expect(&format!("Failed to read erc output at {:?}", output));
-    contents
+        .map_err(|e| format!("Failed to read erc output at {}: {}", ERC_OUTPUT_FILE, e))?;
+    Ok(contents)
 }
 
 fn run_eeschema(path_to_sch: std::path::PathBuf) -> Result<std::process::Child, String> {
-        Command::new("eeschema")
-            .arg(path_to_sch)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to run eeschema: {}", e))
+    Command::new("eeschema")
+        .arg(path_to_sch)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to run eeschema: {}", e))
 }
 
 fn run_xvfb() -> Result<std::process::Child, String> {
@@ -108,7 +109,7 @@ fn run_xvfb() -> Result<std::process::Child, String> {
         .map_err(|e| format!("Failed to run xvfb: {}", e))
 }
 
-fn main() -> Result<(), String>{
+fn main() -> Result<(), String> {
     let args = Options::from_args();
     let xvfb_process = if args.headless {
         std::env::set_var("DISPLAY", XVFB_PORT);
@@ -117,7 +118,7 @@ fn main() -> Result<(), String>{
         None
     };
     let mut eeschema_process = run_eeschema(args.path_to_sch)?;
-    let erc_output = get_erc_output_from_gui();
+    let erc_output = get_erc_output_from_gui()?;
     // TODO: use the captured stdout and stderr in case of problems to give more context
     let _ = eeschema_process.kill();
     xvfb_process.map(|mut process| {
