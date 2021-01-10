@@ -91,32 +91,32 @@ fn get_erc_output_from_gui() -> String {
     contents
 }
 
-fn run_eeschema(path_to_sch: std::path::PathBuf) -> std::process::Child {
+fn run_eeschema(path_to_sch: std::path::PathBuf) -> Result<std::process::Child, String> {
         Command::new("eeschema")
             .arg(path_to_sch)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .expect("Failed to run eeschema")
+            .map_err(|e| format!("Failed to run eeschema: {}", e))
 }
 
-fn run_xvfb() -> std::process::Child {
+fn run_xvfb() -> Result<std::process::Child, String> {
     Command::new("Xvfb")
         .args(&[XVFB_PORT, "-ac", "-nolisten", "tcp"])
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Failed to run xvfb")
+        .map_err(|e| format!("Failed to run xvfb: {}", e))
 }
 
-fn main() {
+fn main() -> Result<(), String>{
     let args = Options::from_args();
     let xvfb_process = if args.headless {
         std::env::set_var("DISPLAY", XVFB_PORT);
-        Some(run_xvfb())
+        Some(run_xvfb()?)
     } else {
         None
     };
-    let mut eeschema_process = run_eeschema(args.path_to_sch);
+    let mut eeschema_process = run_eeschema(args.path_to_sch)?;
     let erc_output = get_erc_output_from_gui();
     // TODO: use the captured stdout and stderr in case of problems to give more context
     let _ = eeschema_process.kill();
@@ -125,4 +125,5 @@ fn main() {
         process.kill()
     });
     println!("{}", erc_output);
+    Ok(())
 }
