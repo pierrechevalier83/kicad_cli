@@ -109,11 +109,28 @@ fn run_xvfb() -> Result<std::process::Child, String> {
         .map_err(|e| format!("Failed to run xvfb: {}", e))
 }
 
+struct Xvfb {
+    process: std::process::Child,
+}
+
+impl Xvfb {
+    fn run() -> Result<Self, String> {
+        let process = run_xvfb()?;
+        std::env::set_var("DISPLAY", XVFB_PORT);
+        Ok(Self { process })
+    }
+}
+impl Drop for Xvfb {
+    fn drop(&mut self) {
+        std::env::remove_var("DISPLAY");
+        self.process.kill().expect("Failed to kill xvfb");
+    }
+}
+
 fn main() -> Result<(), String> {
     let args = Options::from_args();
-    let xvfb_process = if args.headless {
-        std::env::set_var("DISPLAY", XVFB_PORT);
-        Some(run_xvfb()?)
+    let _xvfb_process = if args.headless {
+        Some(Xvfb::run()?)
     } else {
         None
     };
@@ -121,10 +138,6 @@ fn main() -> Result<(), String> {
     let erc_output = get_erc_output_from_gui()?;
     // TODO: use the captured stdout and stderr in case of problems to give more context
     let _ = eeschema_process.kill();
-    xvfb_process.map(|mut process| {
-        std::env::remove_var("DISPLAY");
-        process.kill()
-    });
     println!("{}", erc_output);
     Ok(())
 }
