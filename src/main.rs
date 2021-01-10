@@ -1,4 +1,5 @@
 mod eeschema;
+mod xvfb;
 
 use autopilot;
 use autopilot::key::{self, Character, Code, Flag, KeyCode, KeyCodeConvertible};
@@ -6,7 +7,6 @@ use structopt::StructOpt;
 
 use std::io::prelude::*;
 use std::path;
-use std::process::{self, Command, Stdio};
 
 const HOME: Code = Code(KeyCode::Home);
 const TAB: Code = Code(KeyCode::Tab);
@@ -26,7 +26,7 @@ const EESCHEMA_LAUNCH_DELAY: std::time::Duration = std::time::Duration::from_mil
 const POPUP_WINDOW_LAUNCH_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
 const WAITING_FOR_FILE_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
 const ERC_OUTPUT_FILE: &'static str = "/tmp/erc_output";
-const XVFB_PORT: &'static str = ":99";
+const XVFB_PORT: u8 = 99;
 
 #[derive(StructOpt)]
 #[structopt(
@@ -109,37 +109,9 @@ fn get_erc_output_from_gui() -> Result<String, String> {
     Ok(contents)
 }
 
-struct Xvfb {
-    process: process::Child,
-}
-
-impl Xvfb {
-    fn run() -> Result<Self, String> {
-        let process = Command::new("Xvfb")
-            .args(&[XVFB_PORT, "-ac", "-nolisten", "tcp"])
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to run xvfb: {}", e))?;
-        std::env::set_var("DISPLAY", XVFB_PORT);
-        Ok(Self { process })
-    }
-    fn dump_stderr(&mut self) -> String {
-        let mut buffer = String::new();
-        let mut out = self.process.stderr.take().unwrap();
-        out.read_to_string(&mut buffer).unwrap();
-        buffer
-    }
-}
-impl Drop for Xvfb {
-    fn drop(&mut self) {
-        std::env::remove_var("DISPLAY");
-        self.process.kill().expect("Failed to kill xvfb");
-    }
-}
-
 fn run_erc(args: ErcOptions) -> Result<(), String> {
     let xvfb_process = if args.headless {
-        Some(Xvfb::run()?)
+        Some(xvfb::Xvfb::run(XVFB_PORT)?)
     } else {
         None
     };
