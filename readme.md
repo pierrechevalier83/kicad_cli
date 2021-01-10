@@ -1,4 +1,4 @@
-Kicad Automation
+Kicad CLI
 ===
 
 Automate common tasks that Kicad doesn't expose through better means by running
@@ -34,14 +34,8 @@ WIP
 This work is a very early work in progress.
 
 TODO:
-* Better error handling
-  - In particular, informative error messages for
-    - Missing eeschema executable (install kicad)
-	- Path provided doesn't appear to be a valid kicad file
-    - Gui not responding as we expected
 * More configurability, in particular for the timeouts
 * Run drc too
-* Optionally run headless by running xvfb
 * Publish a Dockerfile for inspiration
 
 Prior art
@@ -54,4 +48,5 @@ https://github.com/productize/kicad-automation-scripts
 I wrote my own version in rust to avoid having to use python2 and having
 to deal with pip or equivalent to pull in a number of python
 dependencies.
-
+I also had some issues with non-reproducibility with that solution and one
+goal here is to make the code as simple as possible to minimize flakyness.
