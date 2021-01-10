@@ -1,5 +1,5 @@
-use std::process::{self, Command, Stdio};
 use std::io::Read;
+use std::process::{self, Command, Stdio};
 
 pub struct Xvfb {
     process: process::Child,
@@ -29,4 +29,3 @@ impl Drop for Xvfb {
         self.process.kill().expect("Failed to kill xvfb");
     }
 }
-
