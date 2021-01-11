@@ -323,6 +323,7 @@ dependencies = [
  "autopilot",
  "rand 0.8.1",
  "structopt",
+ "xdotool",
 ]
 
 [[package]]
@@ -786,3 +787,9 @@ dependencies = [
  "libc",
  "pkg-config",
 ]
+
+[[package]]
+name = "xdotool"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b1e9d309fb1089c718058e3e5d6010c5b0a55f7224262806ad659e408d3f222"

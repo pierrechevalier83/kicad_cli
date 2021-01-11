@@ -1,18 +1,21 @@
+pub mod drc;
 pub mod erc;
 
 use autopilot::key::{self, Character, Code, Flag, KeyCode, KeyCodeConvertible};
 
+const DOWN: Code = Code(KeyCode::DownArrow);
 const HOME: Code = Code(KeyCode::Home);
-const TAB: Code = Code(KeyCode::Tab);
-const SPACE: Code = Code(KeyCode::Space);
 const RETURN: Code = Code(KeyCode::Return);
+const SPACE: Code = Code(KeyCode::Space);
+const TAB: Code = Code(KeyCode::Tab);
+const UP: Code = Code(KeyCode::UpArrow);
 const A: Character = Character('a');
 const C: Character = Character('c');
 const I: Character = Character('i');
 const CTRL: Flag = Flag::Control;
 const ALT: Flag = Flag::Alt;
-const KEY_TAP_DELAY_IN_MS: u64 = 1;
-const MOD_TAP_DELAY_IN_MS: u64 = 10;
+const KEY_TAP_DELAY_IN_MS: u64 = 50;
+const MOD_TAP_DELAY_IN_MS: u64 = 50;
 const WPM: f64 = 240.0;
 const NOISE: f64 = 0.0;
 
