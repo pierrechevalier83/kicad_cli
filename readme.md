@@ -66,6 +66,16 @@ for some arbitrary reason, such as your breathing too loud or moving your mouse
 around and stealing the focus from where the script expects it. You've been
 warned ;)
 
+With docker:
+From this repo:
+```
+docker build -t kicad_cli .
+```
+Then run kicad_cli in docker:
+```
+docker run -v /absolute/path/to/your/pcb/project:/workdir -t kicad_cli kicad_cli run-erc path/to/board.sch --headless
+```
+
 WIP
 ===
 
@@ -74,7 +84,6 @@ This work is a very early work in progress.
 TODO:
 * Add a verbose option
 * Troubleshoot why run-drc hangs when run from within docker
-* Publish a minimal Dockerfile
 * More configurability, in particular for the timeouts
 * Improve erc (rely on less timeouts)
 * Parse outputs to provide a more consistent interface
