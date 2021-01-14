@@ -1,6 +1,7 @@
-use std::io::Read;
 use std::path;
 use std::process::{self, Command, Stdio};
+
+use log::{debug, trace};
 
 pub struct Eeschema {
     process: process::Child,
@@ -24,31 +25,21 @@ impl Eeschema {
     }
     pub fn run(path_to_sch: &path::PathBuf) -> Result<Self, String> {
         Self::check_schematic_file_looks_valid(path_to_sch)?;
+        trace!("Spawning eeschema");
         let process = Command::new("eeschema")
             .arg(path_to_sch)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .spawn()
             .map_err(|e| format!("Failed to run eeschema: {}", e))?;
+        debug!("Spawned eeschema");
         Ok(Self { process })
-    }
-    pub fn dump_stdout(&mut self) -> String {
-        let _ = self.process.kill();
-        let mut buffer = String::new();
-        let mut out = self.process.stdout.take().unwrap();
-        out.read_to_string(&mut buffer).unwrap();
-        buffer
-    }
-    pub fn dump_stderr(&mut self) -> String {
-        let _ = self.process.kill();
-        let mut buffer = String::new();
-        let mut out = self.process.stderr.take().unwrap();
-        out.read_to_string(&mut buffer).unwrap();
-        buffer
     }
 }
 impl Drop for Eeschema {
     fn drop(&mut self) {
-        let _ = self.process.kill();
+        if self.process.kill().is_ok() {
+            debug!("drop: Killed eeschema");
+        }
     }
 }

@@ -1,5 +1,6 @@
-use std::io::Read;
 use std::process::{self, Command, Stdio};
+
+use log::{debug, trace};
 
 pub struct Xvfb {
     process: process::Child,
@@ -8,25 +9,22 @@ pub struct Xvfb {
 impl Xvfb {
     pub fn run(port: u8) -> Result<Self, String> {
         let port = format!(":{}", port);
+        debug!("Spawning Xvbp on port {}", port);
         let process = Command::new("Xvfb")
             .args(&[&port, "-ac", "-nolisten", "tcp"])
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("Failed to run xvfb: {}", e))?;
+        trace!("Xvfb process was spawned successfully");
         std::env::set_var("DISPLAY", &port);
         Ok(Self { process })
-    }
-    pub fn dump_stderr(&mut self) -> String {
-        let _ = self.process.kill();
-        let mut buffer = String::new();
-        let mut out = self.process.stderr.take().unwrap();
-        out.read_to_string(&mut buffer).unwrap();
-        buffer
     }
 }
 impl Drop for Xvfb {
     fn drop(&mut self) {
         std::env::remove_var("DISPLAY");
-        let _ = self.process.kill();
+        if self.process.kill().is_ok() {
+            debug!("Killed Xvfb");
+        }
     }
 }

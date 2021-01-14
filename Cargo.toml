@@ -8,6 +8,8 @@ edition = "2018"
 
 [dependencies]
 autopilot = "0.4.0"
+log = "0.4.11"
+pretty_env_logger = "0.4.0"
 rand = "0.8.1"
 structopt = "0.3.21"
 xdotool = "0.0.2"

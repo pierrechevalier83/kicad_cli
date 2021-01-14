@@ -1,4 +1,4 @@
-use std::io::Read;
+use log::{debug, trace};
 use std::path;
 use std::process::{self, Command, Stdio};
 
@@ -24,31 +24,21 @@ impl Pcbnew {
     }
     pub fn run(path_to_kicad_pcb: &path::PathBuf) -> Result<Self, String> {
         Self::check_schematic_file_looks_valid(path_to_kicad_pcb)?;
+        trace!("Attempting to spawn pcbnew");
         let process = Command::new("pcbnew")
             .arg(path_to_kicad_pcb)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .spawn()
             .map_err(|e| format!("Failed to run pcbnew: {}", e))?;
+        debug!("Spawned pcbnew");
         Ok(Self { process })
-    }
-    pub fn dump_stdout(&mut self) -> String {
-        let _ = self.process.kill();
-        let mut buffer = String::new();
-        let mut out = self.process.stdout.take().unwrap();
-        out.read_to_string(&mut buffer).unwrap();
-        buffer
-    }
-    pub fn dump_stderr(&mut self) -> String {
-        let _ = self.process.kill();
-        let mut buffer = String::new();
-        let mut out = self.process.stderr.take().unwrap();
-        out.read_to_string(&mut buffer).unwrap();
-        buffer
     }
 }
 impl Drop for Pcbnew {
     fn drop(&mut self) {
-        let _ = self.process.kill();
+        if self.process.kill().is_ok() {
+            debug!("drop: Killed pcbnew");
+        }
     }
 }

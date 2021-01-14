@@ -3,6 +3,8 @@ mod gui;
 mod pcbnew;
 mod xvfb;
 
+use log::error;
+use pretty_env_logger;
 use std::path;
 use structopt::StructOpt;
 
@@ -49,25 +51,14 @@ enum Options {
 }
 
 fn run_erc(args: ErcOptions) -> Result<(), String> {
-    let xvfb_process = if args.headless {
+    let _xvfb_process = if args.headless {
         Some(xvfb::Xvfb::run(XVFB_PORT)?)
     } else {
         None
     };
-    let mut eeschema_process = eeschema::Eeschema::run(&args.path_to_sch)?;
+    let _eeschema_process = eeschema::Eeschema::run(&args.path_to_sch)?;
     let erc_output = gui::erc::get_erc_output_from_gui().map_err(|e| {
-        println!("Erred");
-        xvfb_process.map(|mut xvfb_process| {
-            println!("Captured stderr from xvfb:\n{}", xvfb_process.dump_stderr());
-        });
-        println!(
-            "Captured stderr from eeschema:\n{}",
-            eeschema_process.dump_stderr()
-        );
-        println!(
-            "Captured stdout from eeschema:\n{}",
-            eeschema_process.dump_stdout()
-        );
+        error!("Failed to obtain erc output");
         e
     })?;
     println!("{}", erc_output);
@@ -75,26 +66,14 @@ fn run_erc(args: ErcOptions) -> Result<(), String> {
 }
 
 fn run_drc(args: DrcOptions) -> Result<(), String> {
-    let xvfb_process = if args.headless {
+    let _xvfb_process = if args.headless {
         Some(xvfb::Xvfb::run(XVFB_PORT)?)
     } else {
         None
     };
-    let mut pcbnew_process = pcbnew::Pcbnew::run(&args.path_to_kicad_pcb)?;
+    let _pcbnew_process = pcbnew::Pcbnew::run(&args.path_to_kicad_pcb)?;
     let drc_output = gui::drc::get_drc_output_from_gui().map_err(move |e| {
-        xvfb_process.map(|mut xvfb_process| {
-            println!("Captured stderr from xvfb:\n{}", xvfb_process.dump_stderr());
-        });
-        println!(
-            "Captured stderr from pcbnew:\n{}",
-            pcbnew_process.dump_stderr()
-        );
-        println!(
-            "Captured stdout from pcbnew:\n{}",
-            pcbnew_process.dump_stdout()
-        );
-
-        drop(pcbnew_process);
+        error!("Failed to obtain drc output");
         e
     })?;
     println!("{}", drc_output);
@@ -102,6 +81,7 @@ fn run_drc(args: DrcOptions) -> Result<(), String> {
 }
 
 fn main() -> Result<(), String> {
+    pretty_env_logger::init();
     match Options::from_args() {
         Options::RunErc(args) => run_erc(args),
         Options::RunDrc(args) => run_drc(args),
