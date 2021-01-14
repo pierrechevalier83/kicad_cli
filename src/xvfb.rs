@@ -17,6 +17,7 @@ impl Xvfb {
         Ok(Self { process })
     }
     pub fn dump_stderr(&mut self) -> String {
+        let _ = self.process.kill();
         let mut buffer = String::new();
         let mut out = self.process.stderr.take().unwrap();
         out.read_to_string(&mut buffer).unwrap();
@@ -26,6 +27,6 @@ impl Xvfb {
 impl Drop for Xvfb {
     fn drop(&mut self) {
         std::env::remove_var("DISPLAY");
-        self.process.kill().expect("Failed to kill xvfb");
+        let _ = self.process.kill();
     }
 }

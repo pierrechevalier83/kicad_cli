@@ -33,12 +33,14 @@ impl Eeschema {
         Ok(Self { process })
     }
     pub fn dump_stdout(&mut self) -> String {
+        let _ = self.process.kill();
         let mut buffer = String::new();
         let mut out = self.process.stdout.take().unwrap();
         out.read_to_string(&mut buffer).unwrap();
         buffer
     }
     pub fn dump_stderr(&mut self) -> String {
+        let _ = self.process.kill();
         let mut buffer = String::new();
         let mut out = self.process.stderr.take().unwrap();
         out.read_to_string(&mut buffer).unwrap();
@@ -47,6 +49,6 @@ impl Eeschema {
 }
 impl Drop for Eeschema {
     fn drop(&mut self) {
-        self.process.kill().expect("Failed to kill eeschema");
+        let _ = self.process.kill();
     }
 }
