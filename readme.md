@@ -47,6 +47,9 @@ kicad_cli:
 Usage
 ===
 
+Basic usage:
+---
+
 See `kicad_cli --help`, `kicad_cli run-erc --help` or
 `kicad_cli run-drc --help` for details.
 
@@ -66,7 +69,9 @@ for some arbitrary reason, such as your breathing too loud or moving your mouse
 around and stealing the focus from where the script expects it. You've been
 warned ;)
 
-With docker:
+With docker (recommended):
+---
+
 From this repo:
 ```
 docker build -t kicad_cli .
@@ -75,15 +80,46 @@ Then run kicad_cli in docker:
 ```
 docker run -v /absolute/path/to/your/pcb/project:/workdir -t kicad_cli kicad_cli run-erc path/to/board.sch --headless
 ```
+or
+```
+docker run -v /absolute/path/to/your/pcb/project:/workdir -t kicad_cli kicad_cli run-drc path/to/board.kicad_pcb --headless
+```
+
+Troubleshooting:
+---
+
+If the script is not behaving as expected. You may increase the information
+being logged by setting the `RUST_LOG` environment varible to one of the
+following values: `debug`, `error`, `info`, `warn` or `trace`.
+For instance, run this command:
+```
+docker run -v /absolute/path/to/your/pcb/project:/workdir -t kicad_cli bash -c "RUST_LOG=trace kicad_cli run-erc path/to/board.sch --headless"
+```
+
+Another useful technique is to run headless on docker, but record the screen to
+be able to see what's going on with the UX.
+It can be done as follows:
+```
+docker run -v /absolute/path/to/your/pcb/project:/workdir -ti kicad_cli bash
+pacman -Syy
+pacman -S recordmydesktop
+Xvfb :99 -ac -nolisten tcp&
+export DISPLAY=:99
+recordmydesktop --no-sound --no-frame --on-the-fly-encoding -o recording&
+kicad_cli run-erc path/to/board.sch
+killall recordmydesktop
+killall Xvfb
+```
+
+You should then find the file: recording.ogv in your pcb project's directory.
+Open it with `mpv`, `vlc` or your favourite video player.
 
 WIP
 ===
 
-This work is a very early work in progress.
+This work is a work in progress.
 
 TODO:
-* Add a verbose option
-* Troubleshoot why run-drc hangs when run from within docker
 * More configurability, in particular for the timeouts
 * Improve erc (rely on less timeouts)
 * Parse outputs to provide a more consistent interface
