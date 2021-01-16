@@ -92,6 +92,33 @@ fn run_erc(args: ErcOptions) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug)]
+struct DrcOutput {
+    num_errors: usize,
+    num_unconnected_pads: usize,
+}
+
+impl DrcOutput {
+    fn try_from_pcbnew_output(s: &str) -> Result<Self, String> {
+        let num_errors = s.split_terminator('\n')
+                          .find_map(|line| {
+                              if line.ends_with("DRC errors **") {
+                                Some(line.replace("** Found ", "").replace(" DRC errors **", "").parse().unwrap())
+                              } else {
+                                None
+                              }
+                          }).unwrap();
+        let num_unconnected_pads = s.split_terminator('\n')
+                          .find_map(|line| {
+                              if line.ends_with("unconnected pads **") {
+                                Some(line.replace("** Found ", "").replace(" unconnected pads **", "").parse().unwrap())
+                              } else {
+                                None
+                              }
+                          }).unwrap();
+        Ok(Self {num_errors, num_unconnected_pads})
+    }
+}
 fn run_drc(args: DrcOptions) -> Result<(), String> {
     let _xvfb_process = if args.headless {
         Some(xvfb::Xvfb::run(XVFB_PORT)?)
@@ -99,11 +126,11 @@ fn run_drc(args: DrcOptions) -> Result<(), String> {
         None
     };
     let _pcbnew_process = pcbnew::Pcbnew::run(&args.path_to_kicad_pcb)?;
-    let drc_output = gui::drc::get_drc_output_from_gui().map_err(move |e| {
+    let drc_output = DrcOutput::try_from_pcbnew_output(&gui::drc::get_drc_output_from_gui().map_err(move |e| {
         error!("Failed to obtain drc output");
         e
-    })?;
-    println!("{}", drc_output);
+    })?)?;
+    println!("{:?}", drc_output);
     Ok(())
 }
 
