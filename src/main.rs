@@ -3,9 +3,11 @@ mod gui;
 mod pcbnew;
 mod xvfb;
 
+use std::path;
+
 use log::error;
 use pretty_env_logger;
-use std::path;
+use regex;
 use structopt::StructOpt;
 
 const XVFB_PORT: u8 = 99;
@@ -50,6 +52,30 @@ enum Options {
     RunDrc(DrcOptions),
 }
 
+#[derive(Debug)]
+struct ErcOutput {
+    num_errors: usize,
+    num_warnings: usize,
+}
+
+impl ErcOutput {
+    fn try_from_eeschema_output(s: &str) -> Result<Self, String> {
+        let last_line = s.split_terminator('\n')
+                         .find(|line| line.starts_with(" ** ERC messages")).unwrap();
+        let re = regex::Regex::new(r" \*\* ERC messages:\s+(\d+)\s+Errors\s+(\d)+\s+Warnings\s+(\d+)").expect("Invalid regex");
+        for cap in re.captures_iter(last_line) {
+            let total: usize = cap[1].parse().unwrap();
+            let num_errors: usize = cap[2].parse().unwrap();
+            let num_warnings: usize = cap[3].parse().unwrap();
+            if total != num_errors + num_warnings{
+                return Err(format!("Expected total ERC messages to be the sum of Errors and Warnings. Not the case in: {}", last_line));
+            }
+            return Ok(Self {num_errors, num_warnings})
+        }
+        panic!("Failed to parse eeschema output");
+    }
+}
+
 fn run_erc(args: ErcOptions) -> Result<(), String> {
     let _xvfb_process = if args.headless {
         Some(xvfb::Xvfb::run(XVFB_PORT)?)
@@ -57,11 +83,12 @@ fn run_erc(args: ErcOptions) -> Result<(), String> {
         None
     };
     let _eeschema_process = eeschema::Eeschema::run(&args.path_to_sch)?;
-    let erc_output = gui::erc::get_erc_output_from_gui().map_err(|e| {
+    let erc_output = ErcOutput::try_from_eeschema_output(&gui::erc::get_erc_output_from_gui().map_err(|e| {
         error!("Failed to obtain erc output");
         e
-    })?;
-    println!("{}", erc_output);
+    })?)?;
+    
+    println!("{:?}", erc_output);
     Ok(())
 }
 

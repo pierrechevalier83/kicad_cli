@@ -361,6 +361,7 @@ dependencies = [
  "log",
  "pretty_env_logger",
  "rand 0.8.1",
+ "regex",
  "structopt",
  "xdotool",
 ]
