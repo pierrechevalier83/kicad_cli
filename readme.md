@@ -72,7 +72,17 @@ warned ;)
 With docker (recommended):
 ---
 
-From this repo:
+### From dockerhub:
+```
+docker run -v /absolute/path/to/your/pcb/project:/workdir -t pierrechevalier83/kicad_cli kicad_cli run-erc path/to/board.sch --headless
+```
+or
+```
+docker run -v /absolute/path/to/your/pcb/project:/workdir -t pierrechevalier83/kicad_cli kicad_cli run-drc path/to/board.kicad_pcb --headless
+```
+
+
+### From this repo:
 ```
 docker build -t kicad_cli .
 ```
