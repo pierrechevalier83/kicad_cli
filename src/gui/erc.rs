@@ -8,14 +8,17 @@ use std::thread::sleep;
 use log::{debug, trace};
 
 const NUM_ITEMS_TO_ERC_FILE_REPORT_BOX: usize = 4;
-const EESCHEMA_LAUNCH_DELAY: std::time::Duration = std::time::Duration::from_millis(1000);
+const EESCHEMA_LAUNCH_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(10_000);
 const POPUP_WINDOW_LAUNCH_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
-const WAITING_FOR_FILE_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
+const ERC_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(10_000);
 const ERC_OUTPUT_FILE: &'static str = "/tmp/erc_output";
 
 pub fn get_erc_output_from_gui() -> Result<String, String> {
     debug!("Wait for eeschema to start");
-    sleep(EESCHEMA_LAUNCH_DELAY);
+    let id = wait_for_child_window("Eeschema.*", EESCHEMA_LAUNCH_TIMEOUT);
+    if id.is_none() {
+        return Err(format!("Failed to launch eeschema"));
+    }
     debug!("Try and open the Electrical Rule Checker window");
     // Alt + i opens the "Inspect" menu
     tap_combo(ALT, I);
@@ -46,12 +49,12 @@ pub fn get_erc_output_from_gui() -> Result<String, String> {
     // Let's save to the path we entered and run ERC
     debug!("Run ERC");
     tap_key(RETURN);
-    let mut loop_count = 0;
     debug!("Wait for file to be created");
-    while !output.exists() && loop_count < 10 {
+    let mut time_elapsed = Duration::default();
+    while !output.exists() && time_elapsed < ERC_TIMEOUT {
         output = path::Path::new(ERC_OUTPUT_FILE);
-        sleep(WAITING_FOR_FILE_DELAY);
-        loop_count += 1;
+        sleep(WAIT_INCREMENT);
+        time_elapsed += WAIT_INCREMENT;
         trace!(".");
     }
     debug!("Found file or timed out");

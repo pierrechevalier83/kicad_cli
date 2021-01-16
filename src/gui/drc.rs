@@ -7,16 +7,13 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use log::{debug, error};
-use xdotool::{
-    command::options::{SyncOption},
-    option_vec, window, OptionVec,
-};
+use xdotool::{command::options::SyncOption, option_vec, window, OptionVec};
 
 const NUM_ITEMS_TO_REPORT_ALL_ERRORS_FOR_TRACKS_BOX: usize = 4;
 const NUM_ITEMS_TO_CREATE_REPORT_FILE: usize = 2;
 const PCBVIEW_LAUNCH_TIMEOUT: Duration = Duration::from_millis(10_000);
 const POPUP_WINDOW_LAUNCH_DELAY: Duration = Duration::from_millis(1000);
-const DRC_TIMEOUT_IN_MS: usize = 15_000;
+const DRC_TIMEOUT: Duration = Duration::from_millis(15_000);
 // Kicad forces us to use their own extension
 const DRC_OUTPUT_FILE: &'static str = "/tmp/drc_output.rpt";
 
@@ -63,15 +60,15 @@ pub fn get_drc_output_from_gui() -> Result<String, String> {
     // Run DRC
     debug!("Run DRC");
     tap_key(RETURN);
-    let mut time_elapsed_in_ms = 0;
     debug!("Wait for file to be created");
-    while !output.exists() && time_elapsed_in_ms < DRC_TIMEOUT_IN_MS {
-        sleep(Duration::from_millis(100));
-        time_elapsed_in_ms += 100;
+    let mut time_elapsed = Duration::default();
+    while !output.exists() && time_elapsed < DRC_TIMEOUT {
         output = path::Path::new(DRC_OUTPUT_FILE);
+        sleep(WAIT_INCREMENT);
+        time_elapsed += WAIT_INCREMENT;
         trace!(".");
     }
-    if time_elapsed_in_ms < DRC_TIMEOUT_IN_MS {
+    if time_elapsed < DRC_TIMEOUT {
         debug!("Found file");
         let output = path::Path::new(DRC_OUTPUT_FILE);
         let mut file = fs::File::open(output)

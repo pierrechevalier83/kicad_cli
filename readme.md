@@ -121,7 +121,6 @@ This work is a work in progress.
 
 TODO:
 * More configurability, in particular for the timeouts
-* Improve erc (rely on less timeouts)
 * Parse outputs to provide a more consistent interface
 
 Prior art

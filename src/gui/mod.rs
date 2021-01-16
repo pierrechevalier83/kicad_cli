@@ -22,6 +22,7 @@ const KEY_TAP_DELAY_IN_MS: u64 = 50;
 const MOD_TAP_DELAY_IN_MS: u64 = 50;
 const WPM: f64 = 240.0;
 const NOISE: f64 = 0.0;
+const WAIT_INCREMENT: std::time::Duration = std::time::Duration::from_millis(500);
 
 fn tap_key<Key: KeyCodeConvertible + Copy + Debug>(key: Key) {
     trace!("tap_key: {:?}", key);
@@ -40,19 +41,20 @@ fn type_string(s: &str) {
 
 // Wait for a window with this name to be present and return its xdotool id
 fn wait_for_child_window(name: &str, timeout: Duration) -> Option<String> {
-    for _ in 0..timeout.as_millis() / 100 {
+    let mut time_elapsed = Duration::default();
+    while time_elapsed < timeout {
         let out = String::from_utf8(
             window::search(
                 name,
                 option_vec![
                     SearchOption::OnlyVisible,
                     SearchOption::Pid(std::process::id()),
-                    SearchOption::Any
                 ],
             )
             .stdout,
         )
         .unwrap();
+        trace!(".");
         let ids = out
             .split("\n")
             .filter(|line| line != &"")
@@ -82,7 +84,8 @@ fn wait_for_child_window(name: &str, timeout: Duration) -> Option<String> {
             }
             return Some(ids[0].clone());
         }
-        sleep(Duration::from_millis(100));
+        sleep(WAIT_INCREMENT);
+        time_elapsed += WAIT_INCREMENT;
     }
     error!("Failed to find any window with name: {}", name);
     None
