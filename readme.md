@@ -114,14 +114,6 @@ killall Xvfb
 You should then find the file: recording.ogv in your pcb project's directory.
 Open it with `mpv`, `vlc` or your favourite video player.
 
-WIP
-===
-
-This work is a work in progress.
-
-TODO:
-* More configurability, in particular for the timeouts
-
 Prior art
 ===
 This work is heavily inspired by prior work from the Productize, Scott Bezek

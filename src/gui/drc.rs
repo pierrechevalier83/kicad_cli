@@ -1,4 +1,5 @@
 use crate::gui::*;
+use crate::Timeouts;
 
 use std::fs;
 use std::io::Read;
@@ -11,14 +12,11 @@ use xdotool::{command::options::SyncOption, option_vec, window, OptionVec};
 
 const NUM_ITEMS_TO_REPORT_ALL_ERRORS_FOR_TRACKS_BOX: usize = 4;
 const NUM_ITEMS_TO_CREATE_REPORT_FILE: usize = 2;
-const PCBVIEW_LAUNCH_TIMEOUT: Duration = Duration::from_millis(10_000);
-const POPUP_WINDOW_LAUNCH_DELAY: Duration = Duration::from_millis(1000);
-const DRC_TIMEOUT: Duration = Duration::from_millis(15_000);
 // Kicad forces us to use their own extension
 const DRC_OUTPUT_FILE: &'static str = "/tmp/drc_output.rpt";
 
-pub fn get_drc_output_from_gui() -> Result<String, String> {
-    let id = wait_for_child_window("Pcbnew", PCBVIEW_LAUNCH_TIMEOUT);
+pub fn get_drc_output_from_gui(timeouts: Timeouts) -> Result<String, String> {
+    let id = wait_for_child_window("Pcbnew", timeouts.window_launch);
     if id.is_none() {
         return Err(format!("Error expected exactly one Pcbnew window left."));
     }
@@ -35,7 +33,7 @@ pub fn get_drc_output_from_gui() -> Result<String, String> {
     tap_key(RETURN);
     debug!("Wait for the Design Rule Checker window to open");
     // Wait for the popup
-    sleep(POPUP_WINDOW_LAUNCH_DELAY);
+    sleep(timeouts.popup_launch);
     debug!("Unfocus pcbnew so it doesn't steal keyboard input");
     // Hiding the main pcbnew window is the only way I found to prevent it from stealing the
     // focus from the drc control window for keyboard input
@@ -62,13 +60,13 @@ pub fn get_drc_output_from_gui() -> Result<String, String> {
     tap_key(RETURN);
     debug!("Wait for file to be created");
     let mut time_elapsed = Duration::default();
-    while !output.exists() && time_elapsed < DRC_TIMEOUT {
+    while !output.exists() && time_elapsed < timeouts.execution {
         output = path::Path::new(DRC_OUTPUT_FILE);
         sleep(WAIT_INCREMENT);
         time_elapsed += WAIT_INCREMENT;
         trace!(".");
     }
-    if time_elapsed < DRC_TIMEOUT {
+    if time_elapsed < timeouts.execution {
         debug!("Found file");
         let output = path::Path::new(DRC_OUTPUT_FILE);
         let mut file = fs::File::open(output)

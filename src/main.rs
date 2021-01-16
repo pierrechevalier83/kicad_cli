@@ -4,6 +4,7 @@ mod pcbnew;
 mod xvfb;
 
 use std::path;
+use std::time::Duration;
 
 use log::error;
 use pretty_env_logger;
@@ -11,6 +12,13 @@ use regex;
 use structopt::StructOpt;
 
 const XVFB_PORT: u8 = 99;
+
+pub struct Timeouts {
+    window_launch: Duration,
+    popup_launch: Duration,
+    execution: Duration,
+}
+
 
 #[derive(StructOpt)]
 #[structopt(
@@ -25,6 +33,34 @@ struct ErcOptions {
         about = "Run headless by spawning a xvfb process. Xvfb must already by installed on the system."
     )]
     headless: bool,
+    #[structopt(
+        long,
+        about = "How many seconds should we wait for Eeschema to launch before giving up?",
+        default_value = "5",
+    )]
+    eeschema_launch_timeout_in_s: u64,
+    #[structopt(
+        long,
+        about = "How many seconds should we wait before assuming a popup window had time to get launched?",
+        default_value = "1",
+    )]
+    popup_timeout_in_s: u64,
+    #[structopt(
+        long,
+        about = "How many seconds should we wait for the Electrical Rules Checker to produce an output?",
+        default_value = "5",
+    )]
+    erc_timeout_in_s: u64
+}
+
+impl ErcOptions {
+    fn get_timeouts(&self) -> Timeouts {
+        Timeouts {
+            window_launch: Duration::from_secs(self.eeschema_launch_timeout_in_s),
+            popup_launch: Duration::from_secs(self.popup_timeout_in_s),
+            execution: Duration::from_secs(self.erc_timeout_in_s)
+        }
+    }
 }
 
 #[derive(StructOpt)]
@@ -40,6 +76,34 @@ struct DrcOptions {
         about = "Run headless by spawning a xvfb process. Xvfb must already by installed on the system."
     )]
     headless: bool,
+    #[structopt(
+        long,
+        about = "How many seconds should we wait for Pcbnew to launch before giving up?",
+        default_value = "10",
+    )]
+    pcbnew_launch_timeout_in_s: u64,
+    #[structopt(
+        long,
+        about = "How many seconds should we wait before assuming a popup window had time to get launched?",
+        default_value = "1",
+    )]
+    popup_timeout_in_s: u64,
+    #[structopt(
+        long,
+        about = "How many seconds should we wait for a certain operation (DRC) to execute?",
+        default_value = "20",
+    )]
+    drc_timeout_in_s: u64
+}
+
+impl DrcOptions {
+    fn get_timeouts(&self) -> Timeouts {
+        Timeouts {
+            window_launch: Duration::from_secs(self.pcbnew_launch_timeout_in_s),
+            popup_launch: Duration::from_secs(self.popup_timeout_in_s),
+            execution: Duration::from_secs(self.drc_timeout_in_s)
+        }
+    }
 }
 
 #[derive(StructOpt)]
@@ -83,7 +147,7 @@ fn run_erc(args: ErcOptions) -> Result<(), String> {
         None
     };
     let _eeschema_process = eeschema::Eeschema::run(&args.path_to_sch)?;
-    let erc_output = ErcOutput::try_from_eeschema_output(&gui::erc::get_erc_output_from_gui().map_err(|e| {
+    let erc_output = ErcOutput::try_from_eeschema_output(&gui::erc::get_erc_output_from_gui(args.get_timeouts()).map_err(|e| {
         error!("Failed to obtain erc output");
         e
     })?)?;
@@ -126,7 +190,7 @@ fn run_drc(args: DrcOptions) -> Result<(), String> {
         None
     };
     let _pcbnew_process = pcbnew::Pcbnew::run(&args.path_to_kicad_pcb)?;
-    let drc_output = DrcOutput::try_from_pcbnew_output(&gui::drc::get_drc_output_from_gui().map_err(move |e| {
+    let drc_output = DrcOutput::try_from_pcbnew_output(&gui::drc::get_drc_output_from_gui(args.get_timeouts()).map_err(move |e| {
         error!("Failed to obtain drc output");
         e
     })?)?;
