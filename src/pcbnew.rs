@@ -31,6 +31,9 @@ impl Pcbnew {
             .stderr(Stdio::null())
             .spawn()
             .map_err(|e| format!("Failed to run pcbnew: {}", e))?;
+        // Sleep for one second to be sure the window has time to load even when the CPU is
+        // overloaded.
+        std::thread::sleep(std::time::Duration::from_secs(1));
         debug!("Spawned pcbnew");
         Ok(Self { process })
     }
